@@ -1,0 +1,163 @@
+---
+title: "mapas_jalisco"
+format: html
+editor: visual
+---
+```{r setup}
+# Cargar librerías
+library(tidyverse)
+library(sf)
+library(viridis)
+
+theme_set(theme_minimal())
+```
+```{r entidedes}
+jalisco_estado<- st_read("data/14a.shp", options = "ENCONDING_LATIN1", quiet = TRUE)
+```
+```{r mapa_jalisco_estado}
+#| fig-align: center
+
+# Crear mapa básico de Jalisco
+mapa_jalisco <- ggplot(jalisco_estado) +
+  geom_sf(fill = "lightblue", color = "darkblue", size = 0.8) +
+  labs(
+    title = "Estado de Jalisco",
+    subtitle = "Límites estatales",
+    caption = "Fuente: INEGI - Marco Geoestadístico"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    plot.caption = element_text(size = 10)
+  )
+
+print(mapa_jalisco)
+```
+```{r limites municipales}
+municipios_jalisco<-st_read("data/14mun.shp", options = "ENCODING_LATIN1", quiet = TRUE)
+
+cat("Número de municipios en Jalisco:", nrow(municipios_jalisco), "\n")
+cat("Primeros 10 municipios en el dataset:\n")
+print(municipios_jalisco$NOMGEO[1:10])
+```
+```{r mapa_municipios}
+mapa_municipios <- ggplot(municipios_jalisco) +
+  geom_sf(fill = "olivedrab", color = "white", size = 0.3) +
+  labs(
+    title = "Municipios de Jalisco",
+    subtitle = paste("Total de municipios:", nrow(municipios_jalisco)),
+    caption = "Fuente: INEGI - Marco Geoestadístico"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    plot.caption = element_text(size = 10)
+  )
+
+print(mapa_municipios)
+```
+```{r municipios_importantes}
+#| fig-align: center
+
+# Identificar municipios región Bajío
+municipios_bajio <- c(
+  "Arandas",
+  "Ayotlán",
+  "El Salto",
+  "Encarnación de Díaz",
+  "Guadalajara",
+  "Jamay",
+  "Juanacatlán",
+  "La Barca",
+  "Lagos de Moreno",
+  "Ocotlán",
+  "Poncitlán",
+  "San Juan de los Lagos",
+  "Tepatitlán de Morelos",
+  "Tlaquepaque",
+  "Tonalá",
+  "Zapopan"
+)
+                     
+
+
+municipios_jalisco <- municipios_jalisco %>%
+  mutate(
+    bajio = case_when(
+      NOMGEO %in% municipios_bajio ~ "Bajío",
+      TRUE ~ "Otros"
+    )
+  )
+mapa_jalisco <- ggplot(municipios_jalisco) +
+  geom_sf(aes(fill = bajio), color = "white", size = 0.2) +
+  scale_fill_manual(
+    values = c("Bajío" = "darkblue", "Otros" = "firebrick"),
+    name = "Clasificación"
+  ) +
+  labs(
+    title = "Municipios de la región Bajío en Jalisco",
+    caption = "Fuente: INEGI - Marco Geoestadístico"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    plot.caption = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+print(mapa_jalisco)
+```
+```{r}
+st_is_longlat(municipios_jalisco)
+```
+`municipios_jalisco_proy <- st_transform(municipios_jalisco, crs = ...)`
+
+```{r areas}
+# Calcular área de cada municipio (en km²)
+municipios_jalisco <- municipios_jalisco %>%
+  mutate(area_km2 = as.numeric(st_area(.)) / 1e6)  # Convertir m² a km²
+
+# Los 10 municipios de mayor área
+municipios_grandes <- municipios_jalisco |> 
+  st_drop_geometry() |> 
+  arrange(desc(area_km2)) |> 
+  select(NOMGEO, area_km2) |> 
+  head(10)
+
+print("Los 10 municipios de mayor área de Jalisco:")
+knitr::kable(municipios_grandes, 
+             col.names = c("Municipio", "Área (km²)"),
+             digits = 2)
+```
+
+```{r mapa_areas}
+#| fig-align: center
+
+# Crear mapa coloreado por área
+mapa_areas <- ggplot(municipios_jalisco) +
+  geom_sf(aes(fill = area_km2), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    name = "Área\n(km²)",
+    trans = "log10",
+    labels = scales::comma_format()
+  ) +
+  labs(
+    title = "Área de los Municipios de Jalisco",
+    subtitle = "Coloreado por área en escala logarítmica",
+    caption = "Fuente: INEGI - Marco Geoestadístico"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    plot.caption = element_text(size = 10),
+    legend.position = "right"
+  )
+
+print(mapa_areas)
+```
+
+
